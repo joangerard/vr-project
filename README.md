@@ -1,5 +1,5 @@
-# learnopengl.com code repository
-Contains code samples for all tutorials of [https://learnopengl.com](https://learnopengl.com). 
+# VR Project with OpenGL
+This repository is based on a fork from https://learnopengl.com. So it contains the same structure.
 
 ## Windows building
 All relevant libraries are found in /libs and all DLLs found in /dlls (pre-)compiled for Windows. 
@@ -29,7 +29,10 @@ cmake ../.
 make -j8
 ```
 
-## Glitter
-Polytonic created a project called [Glitter](https://github.com/Polytonic/Glitter) that is a dead-simple boilerplate for OpenGL. 
-Everything you need to run a single LearnOpenGL Project (including all libraries) and just that; nothing more. 
-Perfect if you want to follow along with the tutorials, without the hassle of having to manually compile and link all third party libraries!
+## Project Details
+
+It is a sample project where it exemplifies how to load models, use the camera, use of lights, 
+shadows and dynamic environment mapping.
+
+![Example](https://github.com/joangerard/vr-project/ex.png)
+
