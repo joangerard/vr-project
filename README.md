@@ -34,5 +34,5 @@ make -j8
 It is a sample project where it exemplifies how to load models, use the camera, use of lights, 
 shadows and dynamic environment mapping.
 
-![Example](https://github.com/joangerard/vr-project/ex.png)
+![Example](https://github.com/joangerard/vr-project/blob/master/ex.png)
 
