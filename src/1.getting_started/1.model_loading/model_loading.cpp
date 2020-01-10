@@ -10,6 +10,8 @@
 #include <learnopengl/camera.h>
 #include <learnopengl/model.h>
 
+#include "particle_container.cpp"
+
 #include <iostream>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -18,7 +20,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
 unsigned int loadCubemap(vector<std::string> faces);
 void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skyboxShader, Shader lampShader, Shader groundShader, unsigned int skyboxVAO,
- unsigned int cubeVAO, unsigned int planeVAO, unsigned int cubemapTexture, unsigned int woodTexture, glm::vec3 lightPos, Camera camera, Model nightTableModel, Model nanoSuitModel,
+ unsigned int cubeVAO, unsigned int planeVAO, unsigned int cubemapTexture, unsigned int woodTexture, glm::vec3 lightPos, glm::vec3 lightColor, Camera camera, Model nightTableModel, Model nanoSuitModel,
  Model cup, Model cup2, float fov, float aspectRatio, glm::mat4 lightSpaceMatrix,  unsigned int depthMap);
 
  void drawSceneDepth(Shader shader, unsigned int planeVAO, glm::vec3 lightPos, Model nightTableModel, Model nanoSuitModel,
@@ -37,7 +39,7 @@ const unsigned int SCR_HEIGHT = 600;
 const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
 // camera
-Camera camera(glm::vec3(0.0f, 0.0f, 2.0f));
+Camera camera(glm::vec3(0.0f, 3.0f, 22.0f));
 Camera invertedCam(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0.0f, -1.0f, 0.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
@@ -90,6 +92,8 @@ int main()
     glEnable(GL_DEPTH_TEST);
     // glEnable(GL_CULL_FACE);  
 
+    
+
     // build and compile shaders
     // -------------------------
     Shader ourShader("1.model_loading.vs", "1.model_loading.fs");
@@ -101,6 +105,12 @@ int main()
     Shader simpleDepthShader("shadow_mapping_depth.vs", "shadow_mapping_depth.fs");
     Shader debugDepthQuad("debug_quad.vs", "debug_quad.fs");
     Shader groundShader("ground.vs", "ground.fs");
+    Shader particleShader("particle.vs", "particle.fs");
+
+    // particle container
+    ParticleContainer* particleContainer = new ParticleContainer(particleShader);
+    particleContainer->initLifeCamera();
+    particleContainer->initBuffers();
 
     // load models
     // -----------
@@ -298,7 +308,15 @@ int main()
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
-        glm::vec3 lightPos(1.5f, 0.8f, 3.0f);
+
+        const float radius = 3.0f;
+        float lightX = sin(glfwGetTime()) * radius;
+        float lightZ = cos(glfwGetTime()) * radius;
+        glm::vec3 lightPos(lightX, 0.8f, lightZ);
+        glm::vec3 lightColor;
+        lightColor.x = 1.0f;
+        lightColor.y = 1.0f;
+        lightColor.z = 1.0f;
 
         // input
         // -----
@@ -351,8 +369,8 @@ int main()
             glClearDepth(1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            drawScene(ourShader, metal, glassShader, skyboxShader, lampShader, groundShader, skyboxVAO,
-            cubeVAO, planeVAO, cubemapTexture, woodTexture, lightPos, invertedCam, nightTableModel, nanoSuitModel, cup, cup2, 90, 1, lightSpaceMatrix, depthMap);
+            // drawScene(ourShader, metal, glassShader, skyboxShader, lampShader, groundShader, skyboxVAO,
+            // cubeVAO, planeVAO, cubemapTexture, woodTexture, lightPos, lightColor, invertedCam, nightTableModel, nanoSuitModel, cup, cup2, 90, 1, lightSpaceMatrix, depthMap);
         }
 
         // reset viewport
@@ -382,8 +400,15 @@ int main()
         glm::mat4 model = glm::mat4(1.0f);
 
         drawScene(ourShader, metal, glassShader, skyboxShader, lampShader, groundShader, skyboxVAO,
-        cubeVAO, planeVAO, cubemapTexture, woodTexture, lightPos, camera, nightTableModel, nanoSuitModel, cup, cup2, camera.Zoom, (float)SCR_WIDTH / (float)SCR_HEIGHT, lightSpaceMatrix, depthMap);
+        cubeVAO, planeVAO, cubemapTexture, woodTexture, lightPos, lightColor, camera, nightTableModel, nanoSuitModel, cup, cup2, camera.Zoom, (float)SCR_WIDTH / (float)SCR_HEIGHT, lightSpaceMatrix, depthMap);
 
+        // ____________________________________________
+        // PARTICLES
+        // ____________________________________________
+        particleContainer->generateParticles(deltaTime);
+        int pCount = particleContainer->simulateParticles(deltaTime, camera.Position); 
+        particleContainer->draw(pCount, woodTexture, glm::vec3(view[0][0], view[1][0], view[2][0]), glm::vec3(view[0][1], view[1][1], view[2][1]), projection*view);
+        // cout << pCount << endl;
         // ---------------------------------------------------------------------------------
         // USER RENDER: RENDER THE MIRROW SPHERE AND GIVE IT THE DYNAMIC CUBEMAP ENVIRONMENT
         // AS TEXTURE
@@ -401,6 +426,8 @@ int main()
         metal.setVec3("cameraPos", camera.Position);
         cup.Draw(metal);
         glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+        
 
         // ----------------------------------------------
         // DEBUGGING PURPOSES: FRAMEBUFFER FACING.
@@ -426,6 +453,8 @@ int main()
     glDeleteBuffers(1, &quadVBO);
     glDeleteVertexArrays(1, &planeVAO);
     glDeleteBuffers(1, &planeVBO);
+
+    particleContainer->deleteBuffers();
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
@@ -465,7 +494,7 @@ void renderQuad()
 }
 
 void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skyboxShader, Shader lampShader, Shader groundShader, unsigned int skyboxVAO,
- unsigned int cubeVAO, unsigned int planeVAO, unsigned int cubemapTexture, unsigned int woodTexture, glm::vec3 lightPos, Camera camera, Model nightTableModel, Model nanoSuitModel,
+ unsigned int cubeVAO, unsigned int planeVAO, unsigned int cubemapTexture, unsigned int woodTexture, glm::vec3 lightPos, glm::vec3 lightColor, Camera camera, Model nightTableModel, Model nanoSuitModel,
  Model cup, Model cup2, float fov, float aspectRatio, glm::mat4 lightSpaceMatrix, unsigned int depthMap) {
  // don't forget to enable shader before setting uniforms
 
@@ -475,12 +504,12 @@ void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skybox
         ourShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
 
         // light properties
-        ourShader.setVec3("light.ambient", 0.2f, 0.2f, 0.2f);
-        ourShader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f);
-        ourShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+        ourShader.setVec3("light.ambient", lightColor.x * 0.8f, lightColor.y * 0.8f, lightColor.z * 0.8f);
+        ourShader.setVec3("light.diffuse", lightColor.x, lightColor.y, lightColor.z);
+        ourShader.setVec3("light.specular", lightColor.x, lightColor.y, lightColor.z);
         ourShader.setFloat("light.constant", 1.0f);
-        ourShader.setFloat("light.linear", 0.09f);
-        ourShader.setFloat("light.quadratic", 0.032f);
+        ourShader.setFloat("light.linear", 0.027f);
+        ourShader.setFloat("light.quadratic", 0.0028f);
 
         // material properties
         ourShader.setFloat("material.shininess", 32.0f);
@@ -531,6 +560,7 @@ void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skybox
         lampShader.use();
         lampShader.setMat4("projection", projection);
         lampShader.setMat4("view", view);
+        lampShader.setVec4("color", lightColor.x, lightColor.y, lightColor.z, 1.0f);
         model = glm::mat4(1.0f);
         model = glm::translate(model, lightPos);
         model = glm::scale(model, glm::vec3(0.1f)); // a smaller cube

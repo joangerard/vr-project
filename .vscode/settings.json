@@ -2,6 +2,7 @@
     "files.associations": {
         "string": "cpp",
         "__node_handle": "cpp",
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "ostream": "cpp"
     }
 }
