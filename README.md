@@ -4,7 +4,7 @@ This project was based on https://learnopengl.com and http://www.opengl-tutorial
 examples and tutorials so it contains some portions of code from them.
 
 # Building
-First copy the resources from ![this url](https://drive.google.com/drive/folders/18LIBy6WQD28gwQvQ5YUa9vdAtrDreN0S?usp=sharing) to the resources files. They were too heavy to be 
+First copy the resources from [this url](https://drive.google.com/drive/folders/18LIBy6WQD28gwQvQ5YUa9vdAtrDreN0S?usp=sharing) to the resources files. They were too heavy to be 
 upload to git. That is why they are in another website.
 
 ## Windows building
