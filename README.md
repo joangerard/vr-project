@@ -1,5 +1,7 @@
 # VR Project with OpenGL
 This repository is based on a fork from https://learnopengl.com. So it contains the same structure.
+This project was based on https://learnopengl.com and http://www.opengl-tutorial.org 
+examples and tutorials so it contains some portions of code from them.
 
 ## Windows building
 All relevant libraries are found in /libs and all DLLs found in /dlls (pre-)compiled for Windows. 

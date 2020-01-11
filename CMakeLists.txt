@@ -55,12 +55,11 @@ else()
 endif(WIN32)
 
 set(CHAPTERS
-    1.getting_started
+    1.vr_diskotek
 )
 
-set(1.getting_started
-    1.model_loading
-
+set(1.vr_diskotek
+    1.vr_diskotek
 )
 
 configure_file(configuration/root_directory.h.in configuration/root_directory.h)

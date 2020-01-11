@@ -14,18 +14,21 @@
 
 #include <iostream>
 
+// Function prototypes
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
 unsigned int loadCubemap(vector<std::string> faces);
+
 void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skyboxShader, Shader lampShader, Shader groundShader, unsigned int skyboxVAO,
  unsigned int cubeVAO, unsigned int planeVAO, unsigned int roofVAO, unsigned int glassWallsVAO, unsigned int cubemapTexture, unsigned int woodTexture, unsigned int marmolTexture,unsigned int woodTableTexture, 
- unsigned int roofTexture, glm::vec3 lightPos[], glm::vec3 lightColor[], Camera camera, Model nightTableModel, Model nanoSuitModel,
+ unsigned int roofTexture, glm::vec3 lightPos[], glm::vec3 lightColor[], Camera camera, Model ship, Model nanoSuitModel,
  Model sphere_mirrow, Model table, Model fountain, Model computer, float fov, float aspectRatio, glm::mat4 lightSpaceMatrix,  unsigned int depthMap, float rotationAngle);
 
- void drawSceneDepth(Shader shader, unsigned int planeVAO, glm::vec3 lightPos, Model nightTableModel, Model nanoSuitModel,
+ void drawSceneDepth(Shader shader, unsigned int planeVAO, glm::vec3 lightPos, Model ship, Model nanoSuitModel,
  Model sphere_mirrow, Model table, Model computer, Model fountain, float rotationAngle);
+
  unsigned int loadCubemap(unsigned int faces);
  unsigned int createEmptyCubemap(int size);
  void switchCam(Camera* cam, int i);
@@ -43,10 +46,14 @@ const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
 // camera
 Camera camera(glm::vec3(6.5f, 2.0f, -6.8f), glm::vec3(0.0f, 1.0f, 0.0f), 135, -20);
+// inverted camera to mirrowing
 Camera invertedCam(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
+
+// user to change lighting: mode party, dark, night.
 int turn = 0;
 bool activateMirrow = false;
 
@@ -97,11 +104,12 @@ int main()
     glEnable(GL_DEPTH_TEST);
     // glEnable(GL_CULL_FACE);  
 
+    // used to rotate nanosut and ship
     int rotationAngle = 0;
 
-    // build and compile shaders
     // -------------------------
-    // Shader ourShader("1.model_loading.vs", "1.model_loading.fs");
+    // BUILD AND COMPILE SHADERS
+    // -------------------------
     Shader ourShader("multiple_lights.vs", "multiple_lights.fs");
     Shader skyboxShader("cubemap.vs", "cubemap.fs");
     Shader lampShader("lamp.vs", "lamp.fs");
@@ -113,7 +121,9 @@ int main()
     Shader groundShader("ground.vs", "ground.fs");
     Shader particleShader("particle.vs", "particle.fs");
 
-    // particle container
+    // --------------------
+    // PARTICLE SYSTEM INITIALIZATION
+    // ---------------------
     ParticleContainer* particleContainer = new ParticleContainer(particleShader, glm::vec3(4.5f, 1.0f, 0));
     particleContainer->initBuffers();
 
@@ -122,7 +132,7 @@ int main()
 
     // load models
     // -----------
-    Model nightTableModel(FileSystem::getPath("resources/objects/ship/99-intergalactic_spaceship-obj-1/Intergalactic_Spaceship-(Wavefront).obj"));
+    Model ship(FileSystem::getPath("resources/objects/ship/99-intergalactic_spaceship-obj-1/Intergalactic_Spaceship-(Wavefront).obj"));
     Model nanoSuitModel(FileSystem::getPath("resources/objects/nanosuit/nanosuit.obj"));
     Model table(FileSystem::getPath("resources/objects/table/table.obj"));
     Model sphere_mirrow(FileSystem::getPath("resources/objects/ball/13517_Beach_Ball_v2_L3.obj"));
@@ -137,7 +147,8 @@ int main()
     unsigned int woodTableTexture = loadTexture(FileSystem::getPath("resources/textures/toy_box_diffuse.png").c_str());
     unsigned int roofTexture = loadTexture(FileSystem::getPath("resources/textures/wall.jpg").c_str());
 
-    // load cubmap
+    // load vertices
+    // --------------
     float skyboxVertices[] = {
         // positions          
         -1.0f,  1.0f, -1.0f,
@@ -183,7 +194,10 @@ int main()
          1.0f, -1.0f,  1.0f
     };
 
-    float quadVertices[] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates. NOTE that this plane is now much smaller and at the top of the screen
+    // used for debugging for mirrowing facing.
+    float quadVertices[] = { 
+        // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates. 
+        // NOTE that this plane is now much smaller and at the top of the screen
         // positions   // texCoords
         -0.3f,  1.0f,  0.0f, 1.0f,
         -0.3f,  0.7f,  0.0f, 0.0f,
@@ -194,8 +208,8 @@ int main()
          0.3f,  1.0f,  1.0f, 1.0f
     };
 
-    // set up vertex data (and buffer(s)) and configure vertex attributes
-    // ------------------------------------------------------------------
+    // floor vertices
+    // ---------------
     float planeVertices[] = {
         // positions            // normals         // texcoords
          7.0f, -0.5f,  7.0f,  0.0f, 1.0f, 0.0f,  7.0f,  0.0f,
@@ -207,19 +221,7 @@ int main()
          7.0f, -0.5f, -7.0f,  0.0f, 1.0f, 0.0f,  7.0f, 7.0f
     };
 
-    // // set up vertex data (and buffer(s)) and configure vertex attributes
-    // // ------------------------------------------------------------------
-    // float roofVertices[] = {
-    //     // positions            // normals         // texcoords
-    //      7.0f, -0.5f,  7.0f,  0.0f, -1.0f, 0.0f,  7.0f,  0.0f,
-    //     -7.0f, -0.5f,  7.0f,  0.0f, -1.0f, 0.0f,   0.0f,  0.0f,
-    //     -7.0f, -0.5f, -7.0f,  0.0f, -1.0f, 0.0f,   0.0f, 7.0f,
-
-    //      7.0f, -0.5f,  7.0f,  0.0f, -1.0f, 0.0f,  7.0f,  0.0f,
-    //     -7.0f, -0.5f, -7.0f,  0.0f, -1.0f, 0.0f,   0.0f, 7.0f,
-    //      7.0f, -0.5f, -7.0f,  0.0f, -1.0f, 0.0f,  7.0f, 10.0f
-    // };
-
+    // Roof and white wall vertices
     float roofVertices[] = {
         // positions            // normals         // texcoords
         //roof
@@ -251,6 +253,8 @@ int main()
 
     };
 
+    // glass wall vertices
+    // -------------------
     float glassWallVertices[] = {
         // positions            // normals         // texcoords
          7.0f, 0.0f,  7.0f,  0.0f, .0f, -1.0f,  7.0f,  0.0f,
@@ -270,17 +274,8 @@ int main()
          -7.0f, 0.0f, -7.0f,  0.0f, .0f, 1.0f,   7.0f, 7.0f,
 
     };
-   
-    // vector<std::string> faces
-    // {
-    //     FileSystem::getPath("resources/textures/skybox/right.jpg"),
-    //     FileSystem::getPath("resources/textures/skybox/left.jpg"),
-    //     FileSystem::getPath("resources/textures/skybox/top.jpg"),
-    //     FileSystem::getPath("resources/textures/skybox/bottom.jpg"),
-    //     FileSystem::getPath("resources/textures/skybox/front.jpg"),
-    //     FileSystem::getPath("resources/textures/skybox/back.jpg")
-    // };
 
+    // cubmap faces
     vector<std::string> faces
     {
         FileSystem::getPath("resources/textures/skybox_maskonaive/right.jpg"),
@@ -291,6 +286,7 @@ int main()
         FileSystem::getPath("resources/textures/skybox_maskonaive/back.jpg")
     };
 
+    // mirrow cubemap initialization
     unsigned int cubemapTexture = loadCubemap(faces);
     int cubemapSize = 128;
     unsigned int relativeCubemapTexture = createEmptyCubemap(cubemapSize);
@@ -360,7 +356,7 @@ int main()
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     glBindVertexArray(0);
 
-    // roof VAO
+    // glass wall VAO
     unsigned int glassVBO, glassVAO;
     glGenVertexArrays(1, &glassVAO);
     glGenBuffers(1, &glassVBO);
@@ -384,7 +380,7 @@ int main()
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
-    // create a color attachment texture
+    // used for debugging only in mirrowing.
     unsigned int textureColorbuffer;
     // glGenTextures(1, &textureColorbuffer);
     // glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
@@ -405,7 +401,9 @@ int main()
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+    // ------------------
     // Depth Frame Buffer
+    // ------------------
     unsigned int depthMapFBO;
     glGenFramebuffers(1, &depthMapFBO);
     unsigned int depthMap = getEmptyTexture(SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -415,18 +413,17 @@ int main()
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);  
     
-    // draw in wireframe
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
     {
+        // rotate models
         if (rotationAngle == 360) {
             rotationAngle = 0;
         }
         rotationAngle++;
 
+        // change lighting
         if (turn == 3) {
             turn = 0;
         }
@@ -437,6 +434,9 @@ int main()
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
+        // ---------------------------------------
+        // Configure lighting: color and positions
+        // ---------------------------------------
         const float radius = 2.5f;
         glm::vec3 pointLightColors[4];
         getLightColors(pointLightColors);
@@ -451,6 +451,7 @@ int main()
         // -----
         processInput(window);
 
+        // clear buffer
         glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -460,20 +461,22 @@ int main()
         glm::mat4 lightProjection, lightView;
         glm::mat4 lightSpaceMatrix;
         float near_plane = 1.0f, far_plane = 20.0f;
-        // lightProjection = glm::perspective(glm::radians(45.0f), (GLfloat)SHADOW_WIDTH / (GLfloat)SHADOW_HEIGHT, near_plane, far_plane); // note that if you use a perspective projection matrix you'll have to change the light position as the current light position isn't enough to reflect the whole scene
+        
+        // notice that ortho is used here instead of perspective.
         lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
         lightView = glm::lookAt(pointLightPos[0], glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0));
         lightSpaceMatrix = lightProjection * lightView;
-        // render scene from light's point of view
+        
         simpleDepthShader.use();
         simpleDepthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
 
+        // render important objects only.
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
         glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
         glClear(GL_DEPTH_BUFFER_BIT);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, woodTexture);
-        drawSceneDepth(simpleDepthShader, planeVAO, pointLightPos[0], nightTableModel, nanoSuitModel, sphere_mirrow, table, computer, fountain, glm::radians((float)rotationAngle));
+        drawSceneDepth(simpleDepthShader, planeVAO, pointLightPos[0], ship, nanoSuitModel, sphere_mirrow, table, computer, fountain, glm::radians((float)rotationAngle));
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // -------------------------------------------------------------
@@ -489,26 +492,31 @@ int main()
             
             for (int i = 0; i < 6; i++) {
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, relativeCubemapTexture, 0);
-                // checkFBOStatus();
+                // positionate the camera
                 invertedCam.Position = glm::vec3(0.0f, 0.0f, 2.0f);
+                // select the correct face direction
                 switchCam(&invertedCam, i);
                 invertedCam.ProcessMouseMovement(0, 0, false);
                 
-                // make sure we clear the framebuffer's content
+                // clear buffer
                 glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
                 glClearDepth(1.0f);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+                // draw scene
                 drawScene(ourShader, metal, glassShader, skyboxShader, lampShader, groundShader, skyboxVAO,
                 cubeVAO, planeVAO, roofVAO, glassVAO, cubemapTexture, woodTexture, marmolTexture, woodTableTexture, roofTexture, 
-                pointLightPos, pointLightColors, invertedCam, nightTableModel, nanoSuitModel, 
+                pointLightPos, pointLightColors, invertedCam, ship, nanoSuitModel, 
                 sphere_mirrow, table, fountain, computer,
                 90, 1, lightSpaceMatrix, depthMap, glm::radians((float)rotationAngle));
             }
         }
-        
 
-        // reset viewport
+        // --------------------------------
+        // RENDER IN USER BUFFER
+        // --------------------------------
+
+        // reset viewport and clear buffer
         glViewport(0, 0, SCR_WIDTH*2, SCR_HEIGHT*2);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -526,7 +534,6 @@ int main()
         // -------------------------------------------------------------
         // USER RENDER: RENDER FROM THE USER
         // --------------------------------------------------------------
-
         glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -536,12 +543,12 @@ int main()
 
         drawScene(ourShader, metal, glassShader, skyboxShader, lampShader, groundShader, skyboxVAO,
         cubeVAO, planeVAO, roofVAO, glassVAO, cubemapTexture, woodTexture, marmolTexture, woodTableTexture, roofTexture, 
-        pointLightPos, pointLightColors, camera, nightTableModel, nanoSuitModel, 
+        pointLightPos, pointLightColors, camera, ship, nanoSuitModel, 
         sphere_mirrow, table, fountain, computer,
          camera.Zoom, (float)SCR_WIDTH / (float)SCR_HEIGHT, lightSpaceMatrix, depthMap, glm::radians((float)rotationAngle));
 
         // ____________________________________________
-        // PARTICLES
+        // DRAW TWO SET OF PARTICLES
         // ____________________________________________
         if (!activateMirrow) {
             particleContainer->generateParticles(deltaTime);
@@ -552,9 +559,7 @@ int main()
             particleContainer2->simulateParticles(deltaTime);
             particleContainer2->draw(waterTexture, projection, view);
         }
-        
 
-        // cout << pCount << endl;
         // ---------------------------------------------------------------------------------
         // USER RENDER: RENDER THE MIRROW SPHERE AND GIVE IT THE DYNAMIC CUBEMAP ENVIRONMENT
         // AS TEXTURE
@@ -592,6 +597,7 @@ int main()
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+    // delete buffers after use
     glDeleteRenderbuffers(1, &rbo);
     glDeleteFramebuffers(1, &framebuffer);
     glDeleteVertexArrays(1, &cubeVAO);
@@ -604,7 +610,6 @@ int main()
     glDeleteBuffers(1, &planeVBO);
     glDeleteVertexArrays(1, &roofVAO);
     glDeleteBuffers(1, &roofVBO);
-
     particleContainer->deleteBuffers();
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
@@ -644,6 +649,7 @@ void renderQuad()
     glBindVertexArray(0);
 }
 
+// change the light colors
 void getLightColors(glm::vec3 *pointLightColors) {
     // PARTY
     if (turn == 0) {
@@ -652,7 +658,7 @@ void getLightColors(glm::vec3 *pointLightColors) {
         pointLightColors[2] = glm::vec3(1.0f, 0.0f, 0.0f);
         pointLightColors[3] = glm::vec3(0.2f, 0.2f, 1.0f);
     } else if(turn == 1) {
-        // BLUE
+        // MOON
         pointLightColors[0] = glm::vec3(0.2f, 0.2f, 0.6f);
         pointLightColors[1] = glm::vec3(0.3f, 0.3f, 0.7f);
         pointLightColors[2] = glm::vec3(0.0f, 0.0f, 0.3f);
@@ -666,8 +672,8 @@ void getLightColors(glm::vec3 *pointLightColors) {
     }
 }
 
+// Method to transmit the light parameters to the shaders
 void setLights(Shader shader, glm::vec3 lightPositions[], glm::vec3 pointLightColors[], glm::mat4 lightSpaceMatrix, unsigned int depthMap, int nrLights) {
-    
     // directional light
     shader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);	
     shader.setVec3("dirLight.ambient",  0.0f, 0.0f, 0.0f);
@@ -688,20 +694,19 @@ void setLights(Shader shader, glm::vec3 lightPositions[], glm::vec3 pointLightCo
     shader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
     shader.setFloat("material.shininess", 32.0f);
 
-    // depthMap
+    // depthMap: shadows
     shader.setInt("shadowMap", 2);
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, depthMap);
 }
 
+// Draw principal scene
 void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skyboxShader, Shader lampShader, Shader groundShader, unsigned int skyboxVAO,
  unsigned int cubeVAO, unsigned int planeVAO, unsigned int roofVAO, unsigned int glassWallsVAO, unsigned int cubemapTexture, unsigned int woodTexture, unsigned int marmolTexture, unsigned int woodTableTexture,
- unsigned int roofTexture, glm::vec3 lightPos[], glm::vec3 lightColor[], Camera camera, Model nightTableModel, Model nanoSuitModel,
+ unsigned int roofTexture, glm::vec3 lightPos[], glm::vec3 lightColor[], Camera camera, Model ship, Model nanoSuitModel,
  Model sphere_mirrow, Model table, Model fountain, Model computer, float fov, float aspectRatio, glm::mat4 lightSpaceMatrix, unsigned int depthMap, float rotationAngle) {
- // don't forget to enable shader before setting uniforms
-
-        ourShader.use();
         
+        ourShader.use();
         ourShader.setVec3("viewPos", camera.Position);
         setLights(ourShader, lightPos, lightColor, lightSpaceMatrix, depthMap, 4);
 
@@ -717,7 +722,7 @@ void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skybox
         model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));	// it's a bit too big for our scene, so scale it down
         model = glm::rotate(model, rotationAngle, glm::vec3(0.0, 1.0, 0.0));
         ourShader.setMat4("model", model);
-        nightTableModel.Draw(ourShader);
+        ship.Draw(ourShader);
 
         //render nanosut
         model = glm::mat4(1.0f);
@@ -851,8 +856,6 @@ void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skybox
             view = glm::mat4(glm::mat3(camera.GetViewMatrix())); // remove translation from the view matrix
             skyboxShader.setMat4("view", view);
             skyboxShader.setMat4("projection", projection);
-
-            // skybox cube
             glBindVertexArray(skyboxVAO);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
@@ -862,24 +865,23 @@ void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skybox
         }
 }
 
-void drawSceneDepth(Shader shader, unsigned int planeVAO, glm::vec3 lightPos, Model nightTableModel, Model nanoSuitModel,
+// Draw scene for getting shadows
+void drawSceneDepth(Shader shader, unsigned int planeVAO, glm::vec3 lightPos, Model ship, Model nanoSuitModel,
  Model sphere_mirrow, Model table, Model computer, Model fountain, float rotationAngle) {
  // don't forget to enable shader before setting uniforms
         shader.use();
-
         // render ship
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(0.0f, -1.7f, 4.5f)); // translate it down so it's at the center of the scene
         model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));	// it's a bit too big for our scene, so scale it down
         shader.setMat4("model", model);
-        nightTableModel.Draw(shader);
+        ship.Draw(shader);
 
         //render nanosut
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(0.0f, -2.0f, -4.5f)); // translate it down so it's at the center of the scene
         model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	// it's a bit too big for our scene, so scale it down
         model = glm::rotate(model, rotationAngle, glm::vec3(0.0f, 1.0f, 0.0f));
-        // model = glm::rotate(model, glm::radians(sin(glfwGetTime())), glm::vec3(1.0, 0.0, 0.0));
         shader.setMat4("model", model);
         nanoSuitModel.Draw(shader);
 
@@ -991,6 +993,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     camera.ProcessMouseScroll(yoffset);
 }
 
+// This method is used mainly to reserve space in memory for a texture
 unsigned int getEmptyTexture(unsigned int width, unsigned int height) {
     unsigned int depthMap;
     glGenTextures(1, &depthMap);
@@ -1005,17 +1008,7 @@ unsigned int getEmptyTexture(unsigned int width, unsigned int height) {
     return depthMap;
 }
 
-
-// loads a cubemap texture from 6 individual texture faces
-// order:
-// +X (right)
-// -X (left)
-// +Y (top)
-// -Y (bottom)
-// +Z (front) 
-// -Z (back)
-// -------------------------------------------------------
-
+// Reserve space in memory for a cubemap
 unsigned int createEmptyCubemap(int size) {
     unsigned int textureID;
     glGenTextures(1, &textureID);
@@ -1038,16 +1031,8 @@ unsigned int createEmptyCubemap(int size) {
     return textureID;
 }
 
+// switch camera for collecting the 6 faces of the cubemap
 void switchCam(Camera* cam, int i) {
-
-    // FileSystem::getPath("resources/textures/skybox/right.jpg"),
-    //     FileSystem::getPath("resources/textures/skybox/left.jpg"),
-    //     FileSystem::getPath("resources/textures/skybox/top.jpg"),
-    //     FileSystem::getPath("resources/textures/skybox/bottom.jpg"),
-    //     FileSystem::getPath("resources/textures/skybox/front.jpg"),
-    //     FileSystem::getPath("resources/textures/skybox/back.jpg")
-
-
     //RIGHT
     if (i == 0) {
         cam->Pitch = 0;
@@ -1075,6 +1060,15 @@ void switchCam(Camera* cam, int i) {
     }
 }
 
+// loads a cubemap texture from 6 individual texture faces
+// order:
+// +X (right)
+// -X (left)
+// +Y (top)
+// -Y (bottom)
+// +Z (front) 
+// -Z (back)
+// -------------------------------------------------------
 unsigned int loadCubemap(vector<std::string> faces)
 {
     unsigned int textureID;
@@ -1106,7 +1100,7 @@ unsigned int loadCubemap(vector<std::string> faces)
     return textureID;
 }
 
-/** checks the status of the currently bound frame buffer object */
+// checks the status of the currently bound frame buffer object
 void checkFBOStatus() {
 	GLenum status = glCheckFramebufferStatus( GL_FRAMEBUFFER );
 	switch (status) {
