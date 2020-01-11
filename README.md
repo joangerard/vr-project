@@ -3,6 +3,10 @@ This repository is based on a fork from https://learnopengl.com. So it contains 
 This project was based on https://learnopengl.com and http://www.opengl-tutorial.org 
 examples and tutorials so it contains some portions of code from them.
 
+# Building
+First copy the resources from ![this url](https://drive.google.com/drive/folders/18LIBy6WQD28gwQvQ5YUa9vdAtrDreN0S?usp=sharing) to the resources files. They were too heavy to be 
+upload to git. That is why they are in another website.
+
 ## Windows building
 All relevant libraries are found in /libs and all DLLs found in /dlls (pre-)compiled for Windows. 
 The CMake script knows where to find the libraries so just run CMake script and generate project of choice.
