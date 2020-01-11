@@ -7,9 +7,6 @@ in vec3 Position;
 uniform vec3 cameraPos;
 uniform samplerCube skybox;
 
-uniform sampler2D texture_diffuse1;
-uniform sampler2D texture_specular1;
-
 void main()
 {             
     float ratio = 1.00/1.33;

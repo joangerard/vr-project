@@ -20,11 +20,12 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
 unsigned int loadCubemap(vector<std::string> faces);
 void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skyboxShader, Shader lampShader, Shader groundShader, unsigned int skyboxVAO,
- unsigned int cubeVAO, unsigned int planeVAO, unsigned int cubemapTexture, unsigned int woodTexture, glm::vec3 lightPos, glm::vec3 lightColor, Camera camera, Model nightTableModel, Model nanoSuitModel,
- Model cup, Model cup2, float fov, float aspectRatio, glm::mat4 lightSpaceMatrix,  unsigned int depthMap);
+ unsigned int cubeVAO, unsigned int planeVAO, unsigned int roofVAO, unsigned int glassWallsVAO, unsigned int cubemapTexture, unsigned int woodTexture, unsigned int marmolTexture,unsigned int woodTableTexture, 
+ unsigned int roofTexture, glm::vec3 lightPos[], glm::vec3 lightColor[], Camera camera, Model nightTableModel, Model nanoSuitModel,
+ Model sphere_mirrow, Model table, Model fountain, Model computer, float fov, float aspectRatio, glm::mat4 lightSpaceMatrix,  unsigned int depthMap, float rotationAngle);
 
  void drawSceneDepth(Shader shader, unsigned int planeVAO, glm::vec3 lightPos, Model nightTableModel, Model nanoSuitModel,
- Model cup, Model cup2);
+ Model sphere_mirrow, Model table, Model computer, Model fountain, float rotationAngle);
  unsigned int loadCubemap(unsigned int faces);
  unsigned int createEmptyCubemap(int size);
  void switchCam(Camera* cam, int i);
@@ -32,6 +33,8 @@ void checkFBOStatus();
 unsigned int loadTexture(char const * path);
 unsigned int getEmptyTexture(unsigned int width, unsigned int height);
 void renderQuad();
+void setLights(Shader shader, glm::vec3 lightPositions[], glm::vec3 lightColors[], glm::mat4 lightSpaceMatrix, unsigned int depthMap, int nrLights);
+void getLightColors(glm::vec3 *pointLightColors);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
@@ -39,11 +42,13 @@ const unsigned int SCR_HEIGHT = 600;
 const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
 // camera
-Camera camera(glm::vec3(0.0f, 3.0f, 22.0f));
+Camera camera(glm::vec3(6.5f, 2.0f, -6.8f), glm::vec3(0.0f, 1.0f, 0.0f), 135, -20);
 Camera invertedCam(glm::vec3(0.0f, 0.0f, 2.0f), glm::vec3(0.0f, -1.0f, 0.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
+int turn = 0;
+bool activateMirrow = false;
 
 // timing
 float deltaTime = 0.0f;
@@ -92,11 +97,12 @@ int main()
     glEnable(GL_DEPTH_TEST);
     // glEnable(GL_CULL_FACE);  
 
-    
+    int rotationAngle = 0;
 
     // build and compile shaders
     // -------------------------
-    Shader ourShader("1.model_loading.vs", "1.model_loading.fs");
+    // Shader ourShader("1.model_loading.vs", "1.model_loading.fs");
+    Shader ourShader("multiple_lights.vs", "multiple_lights.fs");
     Shader skyboxShader("cubemap.vs", "cubemap.fs");
     Shader lampShader("lamp.vs", "lamp.fs");
     Shader metal("metal.vs", "metal.fs");
@@ -108,20 +114,28 @@ int main()
     Shader particleShader("particle.vs", "particle.fs");
 
     // particle container
-    ParticleContainer* particleContainer = new ParticleContainer(particleShader);
-    particleContainer->initLifeCamera();
+    ParticleContainer* particleContainer = new ParticleContainer(particleShader, glm::vec3(4.5f, 1.0f, 0));
     particleContainer->initBuffers();
+
+    ParticleContainer* particleContainer2 = new ParticleContainer(particleShader, glm::vec3(-4.5f, 1.0f, 0));
+    particleContainer2->initBuffers();
 
     // load models
     // -----------
     Model nightTableModel(FileSystem::getPath("resources/objects/ship/99-intergalactic_spaceship-obj-1/Intergalactic_Spaceship-(Wavefront).obj"));
     Model nanoSuitModel(FileSystem::getPath("resources/objects/nanosuit/nanosuit.obj"));
-    Model cup2(FileSystem::getPath("resources/objects/cup/Krujka-Me.obj"));
-    Model cup(FileSystem::getPath("resources/objects/ball/13517_Beach_Ball_v2_L3.obj"));
-
+    Model table(FileSystem::getPath("resources/objects/table/table.obj"));
+    Model sphere_mirrow(FileSystem::getPath("resources/objects/ball/13517_Beach_Ball_v2_L3.obj"));
+    Model fountain(FileSystem::getPath("resources/objects/angel/angel.obj"));
+    Model computer(FileSystem::getPath("resources/objects/notebook/Lowpoly_Notebook_2.obj"));
+    
     // load textures
     // -------------
     unsigned int woodTexture = loadTexture(FileSystem::getPath("resources/textures/wood.png").c_str());
+    unsigned int waterTexture = loadTexture(FileSystem::getPath("resources/textures/water.png").c_str());
+    unsigned int marmolTexture = loadTexture(FileSystem::getPath("resources/textures/marmol.png").c_str());
+    unsigned int woodTableTexture = loadTexture(FileSystem::getPath("resources/textures/toy_box_diffuse.png").c_str());
+    unsigned int roofTexture = loadTexture(FileSystem::getPath("resources/textures/wall.jpg").c_str());
 
     // load cubmap
     float skyboxVertices[] = {
@@ -184,24 +198,99 @@ int main()
     // ------------------------------------------------------------------
     float planeVertices[] = {
         // positions            // normals         // texcoords
-         25.0f, -0.5f,  25.0f,  0.0f, 1.0f, 0.0f,  25.0f,  0.0f,
-        -25.0f, -0.5f,  25.0f,  0.0f, 1.0f, 0.0f,   0.0f,  0.0f,
-        -25.0f, -0.5f, -25.0f,  0.0f, 1.0f, 0.0f,   0.0f, 25.0f,
+         7.0f, -0.5f,  7.0f,  0.0f, 1.0f, 0.0f,  7.0f,  0.0f,
+        -7.0f, -0.5f,  7.0f,  0.0f, 1.0f, 0.0f,   0.0f,  0.0f,
+        -7.0f, -0.5f, -7.0f,  0.0f, 1.0f, 0.0f,   0.0f, 7.0f,
 
-         25.0f, -0.5f,  25.0f,  0.0f, 1.0f, 0.0f,  25.0f,  0.0f,
-        -25.0f, -0.5f, -25.0f,  0.0f, 1.0f, 0.0f,   0.0f, 25.0f,
-         25.0f, -0.5f, -25.0f,  0.0f, 1.0f, 0.0f,  25.0f, 10.0f
+         7.0f, -0.5f,  7.0f,  0.0f, 1.0f, 0.0f,  7.0f,  0.0f,
+        -7.0f, -0.5f, -7.0f,  0.0f, 1.0f, 0.0f,   0.0f, 7.0f,
+         7.0f, -0.5f, -7.0f,  0.0f, 1.0f, 0.0f,  7.0f, 7.0f
+    };
+
+    // // set up vertex data (and buffer(s)) and configure vertex attributes
+    // // ------------------------------------------------------------------
+    // float roofVertices[] = {
+    //     // positions            // normals         // texcoords
+    //      7.0f, -0.5f,  7.0f,  0.0f, -1.0f, 0.0f,  7.0f,  0.0f,
+    //     -7.0f, -0.5f,  7.0f,  0.0f, -1.0f, 0.0f,   0.0f,  0.0f,
+    //     -7.0f, -0.5f, -7.0f,  0.0f, -1.0f, 0.0f,   0.0f, 7.0f,
+
+    //      7.0f, -0.5f,  7.0f,  0.0f, -1.0f, 0.0f,  7.0f,  0.0f,
+    //     -7.0f, -0.5f, -7.0f,  0.0f, -1.0f, 0.0f,   0.0f, 7.0f,
+    //      7.0f, -0.5f, -7.0f,  0.0f, -1.0f, 0.0f,  7.0f, 10.0f
+    // };
+
+    float roofVertices[] = {
+        // positions            // normals         // texcoords
+        //roof
+         7.0f, -0.5f,  7.0f,  0.0f, -1.0f, 0.0f,  7.0f,  0.0f,
+        -7.0f, -0.5f,  7.0f,  0.0f, -1.0f, 0.0f,   0.0f,  0.0f,
+        -7.0f, -0.5f, -7.0f,  0.0f, -1.0f, 0.0f,   0.0f, 7.0f,
+
+         7.0f, -0.5f,  7.0f,  0.0f, -1.0f, 0.0f,  7.0f,  0.0f,
+        -7.0f, -0.5f, -7.0f,  0.0f, -1.0f, 0.0f,   0.0f, 7.0f,
+         7.0f, -0.5f, -7.0f,  0.0f, -1.0f, 0.0f,  7.0f, 7.0f,
+
+        // right
+        7.0f, 0.0f,  7.0f,  -1.0f, .0f, 0.0f,  7.0f,  0.0f,
+         7.0f, -7.0f,  7.0f,  -1.0f, .0f, 0.0f,   0.0f,  0.0f,
+         7.0f, -7.0f, -7.0f,  -1.0f, .0f, 0.0f,   0.0f, 7.0f,
+
+         7.0f, 0.0f,  7.0f,  -1.0f, .0f, 0.0f,  7.0f,  0.0f,
+         7.0f, -7.0f, -7.0f,  -1.0f, .0f, 0.0f,   0.0f, 7.0f,
+         7.0f, 0.0f, -7.0f,  -1.0f, .0f, 0.0f,  7.0f, 7.0f,
+
+        //left
+         -7.0f, 0.0f, 7.0f,  1.0f, .0f, 0.0f,    7.0f,  0.0f,
+         -7.0f, -7.0f,  7.0f,  1.0f, .0f, 0.0f,   0.0f, 0.0f,
+         -7.0f, -7.0f, -7.0f,  1.0f, .0f, 0.0f,   0.0f, 7.0f,
+
+         -7.0f, 0.0f,  7.0f,  1.0f, .0f, 0.0f,  7.0f,  0.0f,
+         -7.0f, -7.0f, -7.0f,  1.0f, .0f, 0.0f,   0.0f, 7.0f,
+         -7.0f, 0.0f, -7.0f,  1.0f, .0f, 0.0f,   7.0f, 7.0f
+
+    };
+
+    float glassWallVertices[] = {
+        // positions            // normals         // texcoords
+         7.0f, 0.0f,  7.0f,  0.0f, .0f, -1.0f,  7.0f,  0.0f,
+         7.0f, -7.0f, 7.0f,  0.0f, .0f, -1.0f,   0.0f, 0.0f,
+         -7.0f, -7.0f,  7.0f,  0.0f, .0f, -1.0f,  0.0f, 7.0f,
+
+         7.0f, 0.0f,  7.0f,  0.0f, .0f, -1.0f,  7.0f,  0.0f,
+         -7.0f, 0.0f, 7.0f,  0.0f, .0f, -1.0f,   0.0f, 7.0f,
+         -7.0f, -7.0f,  7.0f,  0.0f, .0f, -1.0f, 7.0f, 7.0f,
+
+         -7.0f, -7.0f, -7.0f,  0.0f, .0f, 1.0f,   7.0f, 0.0f,
+         -7.0f, 0.0f, -7.0f,  0.0f, .0f, 1.0f,   0.0f, 0.0f,
+         7.0f, -7.0f, -7.0f,  0.0f, .0f, 1.0f,   0.0f, 7.0f,
+
+         7.0f, 0.0f,  -7.0f,  0.0f, .0f, 1.0f,   7.0f,  0.0f,
+         7.0f, -7.0f, -7.0f,  0.0f, .0f, 1.0f,   0.0f, 7.0f,
+         -7.0f, 0.0f, -7.0f,  0.0f, .0f, 1.0f,   7.0f, 7.0f,
+
     };
    
+    // vector<std::string> faces
+    // {
+    //     FileSystem::getPath("resources/textures/skybox/right.jpg"),
+    //     FileSystem::getPath("resources/textures/skybox/left.jpg"),
+    //     FileSystem::getPath("resources/textures/skybox/top.jpg"),
+    //     FileSystem::getPath("resources/textures/skybox/bottom.jpg"),
+    //     FileSystem::getPath("resources/textures/skybox/front.jpg"),
+    //     FileSystem::getPath("resources/textures/skybox/back.jpg")
+    // };
+
     vector<std::string> faces
     {
-        FileSystem::getPath("resources/textures/skybox/right.jpg"),
-        FileSystem::getPath("resources/textures/skybox/left.jpg"),
-        FileSystem::getPath("resources/textures/skybox/top.jpg"),
-        FileSystem::getPath("resources/textures/skybox/bottom.jpg"),
-        FileSystem::getPath("resources/textures/skybox/front.jpg"),
-        FileSystem::getPath("resources/textures/skybox/back.jpg")
+        FileSystem::getPath("resources/textures/skybox_maskonaive/right.jpg"),
+        FileSystem::getPath("resources/textures/skybox_maskonaive/left.jpg"),
+        FileSystem::getPath("resources/textures/skybox_maskonaive/top.jpg"),
+        FileSystem::getPath("resources/textures/skybox_maskonaive/bottom.jpg"),
+        FileSystem::getPath("resources/textures/skybox_maskonaive/front.jpg"),
+        FileSystem::getPath("resources/textures/skybox_maskonaive/back.jpg")
     };
+
     unsigned int cubemapTexture = loadCubemap(faces);
     int cubemapSize = 128;
     unsigned int relativeCubemapTexture = createEmptyCubemap(cubemapSize);
@@ -248,6 +337,36 @@ int main()
     glBindVertexArray(planeVAO);
     glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), &planeVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glBindVertexArray(0);
+
+    // roof VAO
+    unsigned int roofVBO, roofVAO;
+    glGenVertexArrays(1, &roofVAO);
+    glGenBuffers(1, &roofVBO);
+    glBindVertexArray(roofVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, roofVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(roofVertices), &roofVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glBindVertexArray(0);
+
+    // roof VAO
+    unsigned int glassVBO, glassVAO;
+    glGenVertexArrays(1, &glassVAO);
+    glGenBuffers(1, &glassVBO);
+    glBindVertexArray(glassVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, glassVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glassWallVertices), &glassWallVertices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
@@ -303,20 +422,30 @@ int main()
     // -----------
     while (!glfwWindowShouldClose(window))
     {
+        if (rotationAngle == 360) {
+            rotationAngle = 0;
+        }
+        rotationAngle++;
+
+        if (turn == 3) {
+            turn = 0;
+        }
+
         // per-frame time logic
         // --------------------
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        const float radius = 3.0f;
-        float lightX = sin(glfwGetTime()) * radius;
-        float lightZ = cos(glfwGetTime()) * radius;
-        glm::vec3 lightPos(lightX, 0.8f, lightZ);
-        glm::vec3 lightColor;
-        lightColor.x = 1.0f;
-        lightColor.y = 1.0f;
-        lightColor.z = 1.0f;
+        const float radius = 2.5f;
+        glm::vec3 pointLightColors[4];
+        getLightColors(pointLightColors);
+        glm::vec3 pointLightPos[] = {
+            glm::vec3(sin(glfwGetTime()) * radius, 4.0f, cos(glfwGetTime()) * radius),
+            glm::vec3(6.8f, 1.0f, -6.8f),
+            glm::vec3(0.0f, 1.0, 6.8f),
+            glm::vec3(-6.8f, 1.0, -6.8f)
+        };
 
         // input
         // -----
@@ -333,7 +462,7 @@ int main()
         float near_plane = 1.0f, far_plane = 20.0f;
         // lightProjection = glm::perspective(glm::radians(45.0f), (GLfloat)SHADOW_WIDTH / (GLfloat)SHADOW_HEIGHT, near_plane, far_plane); // note that if you use a perspective projection matrix you'll have to change the light position as the current light position isn't enough to reflect the whole scene
         lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
-        lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0));
+        lightView = glm::lookAt(pointLightPos[0], glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0));
         lightSpaceMatrix = lightProjection * lightView;
         // render scene from light's point of view
         simpleDepthShader.use();
@@ -344,34 +473,40 @@ int main()
         glClear(GL_DEPTH_BUFFER_BIT);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, woodTexture);
-        drawSceneDepth(simpleDepthShader, planeVAO, lightPos, nightTableModel, nanoSuitModel, cup, cup2);
+        drawSceneDepth(simpleDepthShader, planeVAO, pointLightPos[0], nightTableModel, nanoSuitModel, sphere_mirrow, table, computer, fountain, glm::radians((float)rotationAngle));
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // -------------------------------------------------------------
         // MIRROW: RENDER TO FRAME BUFFER 6 TIMES, 1 FOR EACH FACE
         // --------------------------------------------------------------
-        glViewport(0, 0, cubemapSize, cubemapSize);
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-        glEnable(GL_DEPTH_TEST);
+        if (activateMirrow) {
+            glViewport(0, 0, cubemapSize, cubemapSize);
+            glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+            glEnable(GL_DEPTH_TEST);
 
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-        for (int i = 0; i < 6; i++) {
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, relativeCubemapTexture, 0);
-            // checkFBOStatus();
-            invertedCam.Position = glm::vec3(0.0f, 0.0f, 2.0f);
-            switchCam(&invertedCam, i);
-            invertedCam.ProcessMouseMovement(0, 0, false);
-            
-            // make sure we clear the framebuffer's content
-            glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
-            glClearDepth(1.0f);
+            glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            
+            for (int i = 0; i < 6; i++) {
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, relativeCubemapTexture, 0);
+                // checkFBOStatus();
+                invertedCam.Position = glm::vec3(0.0f, 0.0f, 2.0f);
+                switchCam(&invertedCam, i);
+                invertedCam.ProcessMouseMovement(0, 0, false);
+                
+                // make sure we clear the framebuffer's content
+                glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
+                glClearDepth(1.0f);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            // drawScene(ourShader, metal, glassShader, skyboxShader, lampShader, groundShader, skyboxVAO,
-            // cubeVAO, planeVAO, cubemapTexture, woodTexture, lightPos, lightColor, invertedCam, nightTableModel, nanoSuitModel, cup, cup2, 90, 1, lightSpaceMatrix, depthMap);
+                drawScene(ourShader, metal, glassShader, skyboxShader, lampShader, groundShader, skyboxVAO,
+                cubeVAO, planeVAO, roofVAO, glassVAO, cubemapTexture, woodTexture, marmolTexture, woodTableTexture, roofTexture, 
+                pointLightPos, pointLightColors, invertedCam, nightTableModel, nanoSuitModel, 
+                sphere_mirrow, table, fountain, computer,
+                90, 1, lightSpaceMatrix, depthMap, glm::radians((float)rotationAngle));
+            }
         }
+        
 
         // reset viewport
         glViewport(0, 0, SCR_WIDTH*2, SCR_HEIGHT*2);
@@ -400,14 +535,25 @@ int main()
         glm::mat4 model = glm::mat4(1.0f);
 
         drawScene(ourShader, metal, glassShader, skyboxShader, lampShader, groundShader, skyboxVAO,
-        cubeVAO, planeVAO, cubemapTexture, woodTexture, lightPos, lightColor, camera, nightTableModel, nanoSuitModel, cup, cup2, camera.Zoom, (float)SCR_WIDTH / (float)SCR_HEIGHT, lightSpaceMatrix, depthMap);
+        cubeVAO, planeVAO, roofVAO, glassVAO, cubemapTexture, woodTexture, marmolTexture, woodTableTexture, roofTexture, 
+        pointLightPos, pointLightColors, camera, nightTableModel, nanoSuitModel, 
+        sphere_mirrow, table, fountain, computer,
+         camera.Zoom, (float)SCR_WIDTH / (float)SCR_HEIGHT, lightSpaceMatrix, depthMap, glm::radians((float)rotationAngle));
 
         // ____________________________________________
         // PARTICLES
         // ____________________________________________
-        particleContainer->generateParticles(deltaTime);
-        int pCount = particleContainer->simulateParticles(deltaTime, camera.Position); 
-        particleContainer->draw(pCount, woodTexture, glm::vec3(view[0][0], view[1][0], view[2][0]), glm::vec3(view[0][1], view[1][1], view[2][1]), projection*view);
+        if (!activateMirrow) {
+            particleContainer->generateParticles(deltaTime);
+            particleContainer->simulateParticles(deltaTime);
+            particleContainer->draw(waterTexture, projection, view);
+
+            particleContainer2->generateParticles(deltaTime);
+            particleContainer2->simulateParticles(deltaTime);
+            particleContainer2->draw(waterTexture, projection, view);
+        }
+        
+
         // cout << pCount << endl;
         // ---------------------------------------------------------------------------------
         // USER RENDER: RENDER THE MIRROW SPHERE AND GIVE IT THE DYNAMIC CUBEMAP ENVIRONMENT
@@ -416,18 +562,21 @@ int main()
         glEnable(GL_DEPTH_TEST);
         metal.use();
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, relativeCubemapTexture);
+        if (activateMirrow){
+            glBindTexture(GL_TEXTURE_CUBE_MAP, relativeCubemapTexture);
+        } else {
+            glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        }
+        
         metal.setInt("skybox", 0);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 2.0f));
-        model = glm::scale(model, glm::vec3(0.1f, 0.1f, 0.1f));
+        model = glm::translate(model, glm::vec3(0.0f, 0.3f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.05f, 0.05f, 0.05f));
         metal.setMat4("model", model);
         metal.setMat4("view", view);
         metal.setMat4("projection", projection);
         metal.setVec3("cameraPos", camera.Position);
-        cup.Draw(metal);
+        sphere_mirrow.Draw(metal);
         glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-
-        
 
         // ----------------------------------------------
         // DEBUGGING PURPOSES: FRAMEBUFFER FACING.
@@ -453,6 +602,8 @@ int main()
     glDeleteBuffers(1, &quadVBO);
     glDeleteVertexArrays(1, &planeVAO);
     glDeleteBuffers(1, &planeVBO);
+    glDeleteVertexArrays(1, &roofVAO);
+    glDeleteBuffers(1, &roofVBO);
 
     particleContainer->deleteBuffers();
 
@@ -493,31 +644,66 @@ void renderQuad()
     glBindVertexArray(0);
 }
 
+void getLightColors(glm::vec3 *pointLightColors) {
+    // PARTY
+    if (turn == 0) {
+        pointLightColors[0] = glm::vec3(1.0f, 1.0, 0.0);
+        pointLightColors[1] = glm::vec3(1.0f, 0.6f, 0.0f);
+        pointLightColors[2] = glm::vec3(1.0f, 0.0f, 0.0f);
+        pointLightColors[3] = glm::vec3(0.2f, 0.2f, 1.0f);
+    } else if(turn == 1) {
+        // BLUE
+        pointLightColors[0] = glm::vec3(0.2f, 0.2f, 0.6f);
+        pointLightColors[1] = glm::vec3(0.3f, 0.3f, 0.7f);
+        pointLightColors[2] = glm::vec3(0.0f, 0.0f, 0.3f);
+        pointLightColors[3] = glm::vec3(0.4f, 0.4f, 0.4f);
+    } else if(turn == 2) {
+        // DARKNESS
+        pointLightColors[0] = glm::vec3(0.3f, 0.1f, 0.1f);
+        pointLightColors[1] = glm::vec3(0.1f, 0.1f, 0.1f);
+        pointLightColors[2] = glm::vec3(0.1f, 0.1f, 0.1f);
+        pointLightColors[3] = glm::vec3(0.1f, 0.1f, 0.1f);
+    }
+}
+
+void setLights(Shader shader, glm::vec3 lightPositions[], glm::vec3 pointLightColors[], glm::mat4 lightSpaceMatrix, unsigned int depthMap, int nrLights) {
+    
+    // directional light
+    shader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);	
+    shader.setVec3("dirLight.ambient",  0.0f, 0.0f, 0.0f);
+    shader.setVec3("dirLight.diffuse", 0.05f, 0.05f, 0.05);
+    shader.setVec3("dirLight.specular", 0.2f, 0.2f, 0.2f);
+
+    // point lights
+    for(int i = 0; i < nrLights; i++) {
+        shader.setVec3("pointLights["+std::to_string(i)+"].position", lightPositions[i].x, lightPositions[i].y, lightPositions[i].z);
+        shader.setVec3("pointLights["+std::to_string(i)+"].ambient", pointLightColors[i].x * 0.1, pointLightColors[i].y * 0.1, pointLightColors[i].z * 0.1);
+        shader.setVec3("pointLights["+std::to_string(i)+"].diffuse", pointLightColors[i].x, pointLightColors[i].y, pointLightColors[i].z);
+        shader.setVec3("pointLights["+std::to_string(i)+"].specular", pointLightColors[i].x, pointLightColors[i].y, pointLightColors[i].z);
+        shader.setFloat("pointLights["+std::to_string(i)+"].constant", 1.0f);
+        shader.setFloat("pointLights["+std::to_string(i)+"].linear", 0.09f);
+        shader.setFloat("pointLights["+std::to_string(i)+"].quadratic", 0.032f);
+    }
+
+    shader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+    shader.setFloat("material.shininess", 32.0f);
+
+    // depthMap
+    shader.setInt("shadowMap", 2);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, depthMap);
+}
+
 void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skyboxShader, Shader lampShader, Shader groundShader, unsigned int skyboxVAO,
- unsigned int cubeVAO, unsigned int planeVAO, unsigned int cubemapTexture, unsigned int woodTexture, glm::vec3 lightPos, glm::vec3 lightColor, Camera camera, Model nightTableModel, Model nanoSuitModel,
- Model cup, Model cup2, float fov, float aspectRatio, glm::mat4 lightSpaceMatrix, unsigned int depthMap) {
+ unsigned int cubeVAO, unsigned int planeVAO, unsigned int roofVAO, unsigned int glassWallsVAO, unsigned int cubemapTexture, unsigned int woodTexture, unsigned int marmolTexture, unsigned int woodTableTexture,
+ unsigned int roofTexture, glm::vec3 lightPos[], glm::vec3 lightColor[], Camera camera, Model nightTableModel, Model nanoSuitModel,
+ Model sphere_mirrow, Model table, Model fountain, Model computer, float fov, float aspectRatio, glm::mat4 lightSpaceMatrix, unsigned int depthMap, float rotationAngle) {
  // don't forget to enable shader before setting uniforms
 
         ourShader.use();
-        ourShader.setVec3("light.position", lightPos);
+        
         ourShader.setVec3("viewPos", camera.Position);
-        ourShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
-
-        // light properties
-        ourShader.setVec3("light.ambient", lightColor.x * 0.8f, lightColor.y * 0.8f, lightColor.z * 0.8f);
-        ourShader.setVec3("light.diffuse", lightColor.x, lightColor.y, lightColor.z);
-        ourShader.setVec3("light.specular", lightColor.x, lightColor.y, lightColor.z);
-        ourShader.setFloat("light.constant", 1.0f);
-        ourShader.setFloat("light.linear", 0.027f);
-        ourShader.setFloat("light.quadratic", 0.0028f);
-
-        // material properties
-        ourShader.setFloat("material.shininess", 32.0f);
-
-        // depthMap
-        ourShader.setInt("shadowMap", 2);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, depthMap);
+        setLights(ourShader, lightPos, lightColor, lightSpaceMatrix, depthMap, 4);
 
         // // view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(fov), aspectRatio, 0.1f, 200.0f);
@@ -525,28 +711,83 @@ void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skybox
         ourShader.setMat4("projection", projection);
         ourShader.setMat4("view", view);
 
-        // // render the loaded model
+        // render ship
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(-1.5f, -1.75f, 0.0f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));	// it's a bit too big for our scene, so scale it down
+        model = glm::translate(model, glm::vec3(0.0f, -1.7f, 4.5f)); // translate it down so it's at the center of the scene
+        model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));	// it's a bit too big for our scene, so scale it down
+        model = glm::rotate(model, rotationAngle, glm::vec3(0.0, 1.0, 0.0));
         ourShader.setMat4("model", model);
         nightTableModel.Draw(ourShader);
 
         //render nanosut
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(2.0f, -2.0f, 0.0f)); // translate it down so it's at the center of the scene
+        model = glm::translate(model, glm::vec3(0.0f, -2.0f, -4.5f)); // translate it down so it's at the center of the scene
         model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	// it's a bit too big for our scene, so scale it down
+        model = glm::rotate(model, rotationAngle, glm::vec3(0.0, 1.0, 0.0));
         ourShader.setMat4("model", model);
         nanoSuitModel.Draw(ourShader);
+
+        //render table
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-4.5f, -2.0f, 4.5f)); // translate it down so it's at the center of the scene
+        model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));	// it's a bit too big for our scene, so scale it down
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0, 0.0, 0.0));
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0, 0.0, 1.0));
+        ourShader.setMat4("model", model);
+        ourShader.setInt("texture_diffuse1", 0);
+        ourShader.setInt("texture_specular1", 0);
+        ourShader.setInt("shadowMap", 2);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, woodTableTexture);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, depthMap);
+        table.Draw(ourShader);
+
+        //render computer
+        if (!activateMirrow) {
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(-4.5f, -0.8f, 4.5f)); // translate it down so it's at the center of the scene
+            model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	// it's a bit too big for our scene, so scale it down
+            model = glm::rotate(model, glm::radians(-180.0f), glm::vec3(0.0, 1.0, 0.0));
+            ourShader.setMat4("model", model);
+            ourShader.setInt("texture_diffuse1", 0);
+            ourShader.setInt("texture_specular1", 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, marmolTexture);
+            computer.Draw(ourShader);
+        }
+
+        //fountain 1
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(4.5f, -2.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0, 0.0, 0.0));
+        model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));
+        ourShader.setMat4("model", model);
+        ourShader.setInt("texture_diffuse1", 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, woodTableTexture);
+        fountain.Draw(ourShader);
+
+        //fountain 2
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-4.5f, -2.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0, 0.0, 0.0));
+        model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));
+        ourShader.setMat4("model", model);
+        ourShader.setInt("texture_diffuse1", 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, marmolTexture);
+        fountain.Draw(ourShader);
 
         // floor
         ourShader.use();
         ourShader.setInt("texture_diffuse1", 0);
         ourShader.setInt("texture_specular1", 0);
         ourShader.setInt("shadowMap", 1);
-
+        // material properties
+        ourShader.setFloat("material.shininess", 128.0f);
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -1.75f, 0.0f));
+        model = glm::translate(model, glm::vec3(0.0f, -1.5f, 0.0f));
         ourShader.setMat4("model", model);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, woodTexture);
@@ -556,71 +797,139 @@ void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skybox
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
 
-        // also draw the lamp object
-        lampShader.use();
-        lampShader.setMat4("projection", projection);
-        lampShader.setMat4("view", view);
-        lampShader.setVec4("color", lightColor.x, lightColor.y, lightColor.z, 1.0f);
+        //glass walls
+        glassShader.use();
+        glassShader.setMat4("projection", projection);
+        glassShader.setMat4("view", view);
         model = glm::mat4(1.0f);
-        model = glm::translate(model, lightPos);
-        model = glm::scale(model, glm::vec3(0.1f)); // a smaller cube
-        lampShader.setMat4("model", model);
-        glBindVertexArray(cubeVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
-        
-        
+        model = glm::translate(model, glm::vec3(0.0f, 5.0f, 0.0f));
+        glassShader.setMat4("model", model);
+        glassShader.setInt("skybox", 0);
+        glassShader.setVec3("cameraPos", camera.Position);
 
-        // draw skybox as last
-        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
-        skyboxShader.use();
-        view = glm::mat4(glm::mat3(camera.GetViewMatrix())); // remove translation from the view matrix
-        skyboxShader.setMat4("view", view);
-        skyboxShader.setMat4("projection", projection);
-        // skybox cube
-        glBindVertexArray(skyboxVAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glBindVertexArray(glassWallsVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
-        glDepthFunc(GL_LESS);
+
+        // roof
+        ourShader.use();
+        ourShader.setInt("texture_diffuse1", 0);
+        // material properties
+        ourShader.setFloat("material.shininess", 128.0f);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 5.0f, 0.0f));
+        ourShader.setMat4("model", model);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, roofTexture);
+        glBindVertexArray(roofVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+
+        // also draw the lamp objects
+        if (!activateMirrow) {
+            lampShader.use();
+            lampShader.setMat4("projection", projection);
+            lampShader.setMat4("view", view);
+            for (int i = 0; i < 4; i++) {
+                lampShader.setVec4("color", lightColor[i].x, lightColor[i].y, lightColor[i].z, 1.0f);
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, lightPos[i]);
+                model = glm::scale(model, glm::vec3(0.1f)); // a smaller cube
+                lampShader.setMat4("model", model);
+                glBindVertexArray(cubeVAO);
+                glDrawArrays(GL_TRIANGLES, 0, 36);
+                glBindVertexArray(0);
+            }
+        }
+
+        // draw skybox as last
+        if (!activateMirrow) {
+            glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+            skyboxShader.use();
+            view = glm::mat4(glm::mat3(camera.GetViewMatrix())); // remove translation from the view matrix
+            skyboxShader.setMat4("view", view);
+            skyboxShader.setMat4("projection", projection);
+
+            // skybox cube
+            glBindVertexArray(skyboxVAO);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+            glBindVertexArray(0);
+            glDepthFunc(GL_LESS);
+        }
 }
 
 void drawSceneDepth(Shader shader, unsigned int planeVAO, glm::vec3 lightPos, Model nightTableModel, Model nanoSuitModel,
- Model cup, Model cup2) {
+ Model sphere_mirrow, Model table, Model computer, Model fountain, float rotationAngle) {
  // don't forget to enable shader before setting uniforms
         shader.use();
 
-        // render the loaded model
+        // render ship
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(-1.5f, -1.75f, 0.0f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));	// it's a bit too big for our scene, so scale it down
+        model = glm::translate(model, glm::vec3(0.0f, -1.7f, 4.5f)); // translate it down so it's at the center of the scene
+        model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));	// it's a bit too big for our scene, so scale it down
         shader.setMat4("model", model);
         nightTableModel.Draw(shader);
 
         //render nanosut
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(2.0f, -2.0f, 0.0f)); // translate it down so it's at the center of the scene
+        model = glm::translate(model, glm::vec3(0.0f, -2.0f, -4.5f)); // translate it down so it's at the center of the scene
         model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	// it's a bit too big for our scene, so scale it down
+        model = glm::rotate(model, rotationAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+        // model = glm::rotate(model, glm::radians(sin(glfwGetTime())), glm::vec3(1.0, 0.0, 0.0));
         shader.setMat4("model", model);
         nanoSuitModel.Draw(shader);
 
         // floor
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -1.75f, 0.0f));
+        model = glm::translate(model, glm::vec3(0.0f, -1.5f, 0.0f));
         shader.setMat4("model", model);
         glBindVertexArray(planeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
 
-        //render glass cup
-        shader.use();
-        shader.setInt("skybox", 0);
+        //render computer
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(1.0f, 0.0f, 2.0f));
-        model = glm::scale(model, glm::vec3(2.0f, 2.0f, 2.0f));
+        model = glm::translate(model, glm::vec3(-4.5f, -0.8f, 4.5f)); // translate it down so it's at the center of the scene
+        model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	// it's a bit too big for our scene, so scale it down
+        model = glm::rotate(model, glm::radians(-180.0f), glm::vec3(0.0, 1.0, 0.0));
         shader.setMat4("model", model);
-        cup2.Draw(shader);
+        computer.Draw(shader);
+
+         //render table
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-4.5f, -2.0f, 4.5f)); // translate it down so it's at the center of the scene
+        model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));	// it's a bit too big for our scene, so scale it down
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0, 0.0, 0.0));
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0, 0.0, 1.0));
+        shader.setMat4("model", model);
+        table.Draw(shader);
+
+        //fountain 1
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(4.5f, -2.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0, 0.0, 0.0));
+        model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));
+        shader.setMat4("model", model);
+        fountain.Draw(shader);
+
+        //fountain 2
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(-4.5f, -2.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0, 0.0, 0.0));
+        model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));
+        shader.setMat4("model", model);
+        fountain.Draw(shader);
+
+        // sphere
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 0.3f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.05f, 0.05f, 0.05f));
+        shader.setMat4("model", model);
+        sphere_mirrow.Draw(shader);
 }
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
@@ -638,6 +947,12 @@ void processInput(GLFWwindow *window)
         camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.ProcessKeyboard(RIGHT, deltaTime);
+
+    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS)
+        turn++;
+
+    if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
+        activateMirrow = !activateMirrow;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes

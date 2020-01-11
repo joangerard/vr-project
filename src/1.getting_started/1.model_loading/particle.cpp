@@ -10,10 +10,12 @@ class Particle
     // Access specifier 
     public:
         glm::vec3 pos, speed;
-        unsigned char r,g,b,a;
+        glm::vec4 color;
         float size, angle, weight;
         float life;
         float cameradistance;
+
+        Particle():pos(0.0f), speed(0.0f), color(1.0f), life(-1.0f), size(10.0f) { }
 
         bool operator<(const Particle& that) const {
             // Sort in reverse order : far particles drawn first.
