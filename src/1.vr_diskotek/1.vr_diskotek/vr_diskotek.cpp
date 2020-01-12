@@ -718,24 +718,24 @@ void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skybox
 
         // render ship
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -1.7f, 4.5f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));	// it's a bit too big for our scene, so scale it down
+        model = glm::translate(model, glm::vec3(0.0f, -1.7f, 4.5f));
+        model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));
         model = glm::rotate(model, rotationAngle, glm::vec3(0.0, 1.0, 0.0));
         ourShader.setMat4("model", model);
         ship.Draw(ourShader);
 
         //render nanosut
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -2.0f, -4.5f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	// it's a bit too big for our scene, so scale it down
+        model = glm::translate(model, glm::vec3(0.0f, -2.0f, -4.5f)); 
+        model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
         model = glm::rotate(model, rotationAngle, glm::vec3(0.0, 1.0, 0.0));
         ourShader.setMat4("model", model);
         nanoSuitModel.Draw(ourShader);
 
         //render table
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(-4.5f, -2.0f, 4.5f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));	// it's a bit too big for our scene, so scale it down
+        model = glm::translate(model, glm::vec3(-4.5f, -2.0f, 4.5f));
+        model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));
         model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0, 0.0, 0.0));
         model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0, 0.0, 1.0));
         ourShader.setMat4("model", model);
@@ -751,8 +751,8 @@ void drawScene(Shader ourShader, Shader metal, Shader glassShader, Shader skybox
         //render computer
         if (!activateMirrow) {
             model = glm::mat4(1.0f);
-            model = glm::translate(model, glm::vec3(-4.5f, -0.8f, 4.5f)); // translate it down so it's at the center of the scene
-            model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	// it's a bit too big for our scene, so scale it down
+            model = glm::translate(model, glm::vec3(-4.5f, -0.8f, 4.5f));
+            model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
             model = glm::rotate(model, glm::radians(-180.0f), glm::vec3(0.0, 1.0, 0.0));
             ourShader.setMat4("model", model);
             ourShader.setInt("texture_diffuse1", 0);
@@ -872,15 +872,15 @@ void drawSceneDepth(Shader shader, unsigned int planeVAO, glm::vec3 lightPos, Mo
         shader.use();
         // render ship
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -1.7f, 4.5f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));	// it's a bit too big for our scene, so scale it down
+        model = glm::translate(model, glm::vec3(0.0f, -1.7f, 4.5f)); 
+        model = glm::scale(model, glm::vec3(0.4f, 0.4f, 0.4f));	 
         shader.setMat4("model", model);
         ship.Draw(shader);
 
         //render nanosut
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -2.0f, -4.5f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	// it's a bit too big for our scene, so scale it down
+        model = glm::translate(model, glm::vec3(0.0f, -2.0f, -4.5f)); 
+        model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	 
         model = glm::rotate(model, rotationAngle, glm::vec3(0.0f, 1.0f, 0.0f));
         shader.setMat4("model", model);
         nanoSuitModel.Draw(shader);
@@ -895,16 +895,16 @@ void drawSceneDepth(Shader shader, unsigned int planeVAO, glm::vec3 lightPos, Mo
 
         //render computer
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(-4.5f, -0.8f, 4.5f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	// it's a bit too big for our scene, so scale it down
+        model = glm::translate(model, glm::vec3(-4.5f, -0.8f, 4.5f)); 
+        model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	 
         model = glm::rotate(model, glm::radians(-180.0f), glm::vec3(0.0, 1.0, 0.0));
         shader.setMat4("model", model);
         computer.Draw(shader);
 
          //render table
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(-4.5f, -2.0f, 4.5f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));	// it's a bit too big for our scene, so scale it down
+        model = glm::translate(model, glm::vec3(-4.5f, -2.0f, 4.5f)); 
+        model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));	 
         model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0, 0.0, 0.0));
         model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0, 0.0, 1.0));
         shader.setMat4("model", model);

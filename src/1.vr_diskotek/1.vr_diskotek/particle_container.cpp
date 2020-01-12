@@ -37,7 +37,7 @@ class ParticleContainer {
 
             for(int i=0; i < newparticles; i++){
                 int particleIndex = this->FindUnusedParticle();
-                this->particles[particleIndex].life = 4.0f; // This particle will live 5 seconds.
+                this->particles[particleIndex].life = 4.0f; // This particle will live 4 seconds.
                 this->particles[particleIndex].pos = this->posInit;
 
                 float spread = 0.2f;
